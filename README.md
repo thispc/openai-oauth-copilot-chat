@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/grikomsn/openai-oauth-copilot-chat/main/assets/cover.jpg" alt="OpenAI Codex and GitHub Copilot" width="960">
 </p>
 
-<h1 align="center">Codex Bridge for Copilot Chat</h1>
+<h1 align="center">Codex Bridge for Copilot Chat (thispc fork)</h1>
 
 <p align="center">Use OpenAI Codex models directly from the GitHub Copilot Chat model picker in Visual Studio Code with your ChatGPT Plus or Pro subscription.</p>
 

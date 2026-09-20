@@ -1,19 +1,19 @@
 {
-  "name": "openai-oauth-copilot-chat",
-  "displayName": "Codex Bridge for Copilot Chat",
+  "name": "thispc-codex-bridge",
+  "displayName": "Codex Bridge for Copilot Chat (thispc)",
   "description": "Use OpenAI Codex models in GitHub Copilot Chat with your ChatGPT Plus or Pro subscription.",
   "version": "0.11.1",
-  "publisher": "grikomsn",
+  "publisher": "thispc",
   "license": "MIT",
   "icon": "assets/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/grikomsn/openai-oauth-copilot-chat.git"
+    "url": "https://github.com/thispc/openai-oauth-copilot-chat.git"
   },
   "bugs": {
-    "url": "https://github.com/grikomsn/openai-oauth-copilot-chat/issues"
+    "url": "https://github.com/thispc/openai-oauth-copilot-chat/issues"
   },
-  "homepage": "https://github.com/grikomsn/openai-oauth-copilot-chat#readme",
+  "homepage": "https://github.com/thispc/openai-oauth-copilot-chat#readme",
   "engines": {
     "vscode": "^1.125.0"
   },
