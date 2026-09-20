@@ -39,6 +39,7 @@ import { CatalogCache } from "./models/catalog-cache";
 import { ModelsDevMetadata, type MetadataCache } from "./models/metadata";
 import { modelPricingFields, openAIModelCost } from "./models/pricing";
 import { activeProfileFromState, profileFromConfiguration, profileQualifiedModelId } from "./provider-profile";
+import { isQuotaFallbackStatus, modelSelectionSettings, orderedModelIds, type ModelSelectionSettings } from "./models/selection";
 
 /** Live model information registered with VS Code Chat. */
 export interface CodexModel extends vscode.LanguageModelChatInformation {
@@ -141,6 +142,26 @@ export class OpenAICodexProvider implements vscode.LanguageModelChatProvider<Cod
     return Object.fromEntries(this.usageByProfile);
   }
 
+  getModelSelection(): ModelSelectionSettings {
+    return modelSelectionSettings(configuration().get("modelSelection"));
+  }
+
+  async effectiveModelSelection(profile = this.activeProfile): Promise<{ selected: string | undefined; candidates: string[] }> {
+    const settings = this.getModelSelection();
+    const cancellation = new vscode.CancellationTokenSource();
+    try {
+      const models = await this.fetchModels(cancellation.token, profile);
+      const candidates = settings.preferredModelId
+        ? orderedModelIds("auto", settings, models.map((model) => model.id))
+        : [];
+      return { selected: candidates[0], candidates };
+    } catch {
+      return { selected: undefined, candidates: [] };
+    } finally {
+      cancellation.dispose();
+    }
+  }
+
   clearUsage(profile = this.activeProfile): void {
     this.setUsage(profile, {});
   }
@@ -215,6 +236,9 @@ export class OpenAICodexProvider implements vscode.LanguageModelChatProvider<Cod
     }
     if (!await this.oauth.hasSession(profile)) return [];
     const models = expandCodexModelVariants(await this.fetchModels(token, profile));
+    const selection = this.getModelSelection();
+    const preferred = selection.preferredModelId;
+    models.sort((left, right) => (left.rawModelId === preferred ? -1 : right.rawModelId === preferred ? 1 : left.priority - right.priority));
     return models.map((model) => {
       const optionSpec = modelOptionSpec(model);
       const defaults = resolveRequestOptions(optionSpec, model.speedMode, undefined);
@@ -260,14 +284,29 @@ export class OpenAICodexProvider implements vscode.LanguageModelChatProvider<Cod
       model.optionSpec.supportsReasoningSummaryParameter,
       contextCap,
     );
-    const response = await this.transport.sendResponse(body, token, model.profile);
-    if (!response.ok) throw await responseError(`OpenAI Codex request failed for ${model.rawModelId}`, response);
+    const selection = this.getModelSelection();
+    let candidateIds = [model.rawModelId];
+    if (selection.preferredModelId === model.rawModelId || model.rawModelId === "auto" || model.rawModelId === "codex-auto") {
+      const catalog = await this.fetchModels(token, model.profile);
+      candidateIds = orderedModelIds(model.rawModelId, selection, catalog.map((entry) => entry.id));
+      if (!candidateIds.length) candidateIds = [model.rawModelId];
+    }
+    let response: Response | undefined;
+    let selectedModelId = model.rawModelId;
+    for (const candidateId of candidateIds) {
+      selectedModelId = candidateId;
+      response = await this.transport.sendResponse({ ...body, model: candidateId }, token, model.profile);
+      if (response.ok || !isQuotaFallbackStatus(response.status) || candidateId === candidateIds.at(-1)) break;
+      this.output.appendLine(`[model-selection] ${candidateId} returned ${response.status}; trying next configured model`);
+    }
+    if (!response) throw new Error("OpenAI Codex did not return a response");
+    if (!response.ok) throw await responseError(`OpenAI Codex request failed for ${selectedModelId}`, response);
     if (!response.body) throw new Error("OpenAI Codex returned an empty response stream");
 
     if (configuration().get("debugLogging", false)) {
-      this.output.appendLine(`[request] model=${model.rawModelId} speed=${requestOptions.speedMode} effort=${requestOptions.reasoningEffort} summary=${requestOptions.reasoningSummary} webSearch=${requestOptions.webSearch} imageGeneration=${requestOptions.imageGeneration}${contextCap !== undefined ? ` contextCap=${contextCap}` : ""} initiator=${options.requestInitiator ?? "unknown"}`);
+      this.output.appendLine(`[request] model=${selectedModelId}${selectedModelId !== model.rawModelId ? ` (requested ${model.rawModelId})` : ""} speed=${requestOptions.speedMode} effort=${requestOptions.reasoningEffort} summary=${requestOptions.reasoningSummary} webSearch=${requestOptions.webSearch} imageGeneration=${requestOptions.imageGeneration}${contextCap !== undefined ? ` contextCap=${contextCap}` : ""} initiator=${options.requestInitiator ?? "unknown"}`);
     }
-    await consumeStream(response.body, progress, token, (usage) => this.captureRequestUsage(usage, model.rawModelId, model.profile));
+    await consumeStream(response.body, progress, token, (usage) => this.captureRequestUsage(usage, selectedModelId, model.profile));
     if (Date.now() - (this.lastQuotaFetchAt.get(model.profile) ?? 0) > 60_000) {
       void this.refreshUsage(model.profile).catch((error) => this.output.appendLine(`[usage] refresh failed: ${messageOf(error)}`));
     }

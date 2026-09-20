@@ -31,6 +31,16 @@ test("declares an optional Codex client-version override", () => {
     pattern: "^(?:\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)?$",
     description: "Optional Codex client version for the live model catalog. Leave empty to use the extension's checked-in version.",
   });
+
+  test("declares model pinning and ordered fallback settings", () => {
+    const manifest = JSON.parse(readFileSync("package.json", "utf8")) as {
+      contributes: { configuration: { properties: Record<string, Record<string, unknown>> } };
+    };
+    const setting = manifest.contributes.configuration.properties["openaiCodex.modelSelection"];
+    assert.equal(setting.type, "object");
+    assert.deepEqual(setting.default, { preferredModelId: "", fallbackModelIds: [] });
+    assert.equal((setting.properties as Record<string, Record<string, unknown>>).fallbackModelIds.type, "array");
+  });
 });
 
 test("qualifies model IDs by profile and reports invalid native profile values", () => {

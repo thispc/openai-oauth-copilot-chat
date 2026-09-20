@@ -44,6 +44,23 @@ The live Codex directory remains authoritative for availability, limits, capabil
 and reasoning levels. The extension uses a six-hour, stale-while-revalidate models.dev
 snapshot in VS Code `globalState` only to fill metadata omitted by the live directory.
 
+The optional `openaiCodex.modelSelection` object pins a live model without changing
+the provider's model picker:
+
+```json
+"openaiCodex.modelSelection": {
+  "preferredModelId": "gpt-5.2",
+  "fallbackModelIds": ["gpt-5.1", "gpt-5-codex"]
+}
+```
+
+IDs must match the authenticated live catalog. The preferred model is moved to the
+top of the picker and is used for `Auto`/`codex-auto` requests. Explicit picker
+selections remain authoritative. If the preferred model is selected, HTTP 403/429
+responses try configured fallbacks in order before streaming starts. Missing or
+hidden IDs are ignored. Use **Codex Bridge: Show Effective Model** or **Show
+Diagnostics** to see the configured and currently available selection.
+
 After sign-in, the **Codex** status-bar item shows ChatGPT subscription utilization for the primary and secondary quota windows. Click it to refresh quota, inspect reset times, or view exact input/output tokens from the most recent inference. Those normalized token counts are also reported to Copilot Chat so its context-window percentage reflects real usage.
 
 ## Browser callback problems

@@ -24,6 +24,7 @@ This native VS Code `LanguageModelChatProvider` handles OpenAI OAuth locally and
 - Per-model reasoning effort, summary, Speed Mode, Web Search, and Image Generation controls
 - Codex-aware context accounting and prompt-cache reuse
 - Status-bar quota and local inference-token tracking
+- Configurable live model pinning with ordered rate-limit fallbacks
 - Browser, manual-callback, and optional Codex CLI session sign-in paths
 - Connection testing and secret-safe diagnostics
 

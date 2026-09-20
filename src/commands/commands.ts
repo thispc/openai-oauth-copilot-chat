@@ -23,7 +23,8 @@ export function registerCodexCommands(
     vscode.commands.registerCommand("openaiCodex.testConnection", () => testConnection(provider, output)),
     vscode.commands.registerCommand("openaiCodex.refreshModels", () => refreshModels(provider, output)),
     vscode.commands.registerCommand("openaiCodex.showUsage", () => showUsage(provider, output)),
-    vscode.commands.registerCommand("openaiCodex.diagnostics", () => diagnostics(oauth, output)),
+    vscode.commands.registerCommand("openaiCodex.diagnostics", () => diagnostics(oauth, provider, output)),
+    vscode.commands.registerCommand("openaiCodex.showModelSelection", () => showModelSelection(provider, output)),
   ];
 }
 
@@ -305,17 +306,33 @@ function toUsageQuickPickItem(row: UsageDisplayRow): UsageQuickPickItem {
   return { label: `${icon} ${row.label}`, description: row.description, detail: row.detail, alwaysShow: true, action: row.action, resetCreditId: row.actionId };
 }
 
-async function diagnostics(oauth: OpenAIOAuth, output: vscode.OutputChannel): Promise<void> {
+async function diagnostics(oauth: OpenAIOAuth, provider: OpenAICodexProvider, output: vscode.OutputChannel): Promise<void> {
   const models = await vscode.lm.selectChatModels({ vendor: "openai-codex" });
   const profiles = await oauth.listProfiles();
   const content = [
     `# ${EXTENSION_DISPLAY_NAME} diagnostics`, "", `- VS Code: ${vscode.version}`,
     `- OAuth profiles: ${profiles.length}`, `- Account identities: ${profiles.length ? "redacted" : "unavailable"}`,
-    `- Registered models: ${models.length}`, "", ...models.map((model) => `- ${model.id} (${model.maxInputTokens} input tokens)`),
+    `- Registered models: ${models.length}`,
+    `- Model selection: ${formatSelection(provider.getModelSelection())}`,
+    "", ...models.map((model) => `- ${model.id} (${model.maxInputTokens} input tokens)`),
   ].join("\n");
   output.appendLine(`[diagnostics] profiles=${profiles.length} models=${models.length}`);
   const document = await vscode.workspace.openTextDocument({ content, language: "markdown" });
   await vscode.window.showTextDocument(document, vscode.ViewColumn.Beside);
+}
+
+async function showModelSelection(provider: OpenAICodexProvider, output: vscode.OutputChannel): Promise<void> {
+  const effective = await provider.effectiveModelSelection();
+  const selection = provider.getModelSelection();
+  const text = `Configured preferred model: ${selection.preferredModelId || "(none)"}\nOrdered fallbacks: ${selection.fallbackModelIds.join(", ") || "(none)"}\nEffective preferred live model: ${effective.selected ?? "(unavailable; refresh models or sign in)"}\nCandidates: ${effective.candidates.join(" → ") || "(none)"}`;
+  output.appendLine(`[model-selection] ${text.replaceAll("\n", " | ")}`);
+  vscode.window.showInformationMessage(`Codex model: ${effective.selected ?? "unavailable"}`, { modal: false });
+  const document = await vscode.workspace.openTextDocument({ content: text, language: "text" });
+  await vscode.window.showTextDocument(document, vscode.ViewColumn.Beside);
+}
+
+function formatSelection(selection: { preferredModelId?: string; fallbackModelIds: readonly string[] }): string {
+  return `${selection.preferredModelId || "(none)"}${selection.fallbackModelIds.length ? ` → ${selection.fallbackModelIds.join(" → ")}` : ""}`;
 }
 
 function refreshUsageAfterAuth(provider: OpenAICodexProvider, output: vscode.OutputChannel, source: string, profile: string): void {

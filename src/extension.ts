@@ -54,6 +54,7 @@ export function activate(context: vscode.ExtensionContext): void {
         || event.affectsConfiguration("openaiCodex.catalogCacheMinutes")) {
         provider.fireDidChange();
       }
+      if (event.affectsConfiguration("openaiCodex.modelSelection")) provider.fireDidChange();
       if (event.affectsConfiguration("openaiCodex.codexVersion")) {
         provider.clearModelCache();
         provider.fireDidChange();

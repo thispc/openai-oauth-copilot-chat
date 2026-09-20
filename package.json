@@ -76,6 +76,10 @@
       {
         "command": "openaiCodex.diagnostics",
         "title": "Codex Bridge: Show Diagnostics"
+      },
+      {
+        "command": "openaiCodex.showModelSelection",
+        "title": "Codex Bridge: Show Effective Model"
       }
     ],
     "configuration": {
@@ -155,6 +159,30 @@
           "type": "boolean",
           "default": true,
           "description": "Show ChatGPT Codex quota utilization and inference token usage in the status bar."
+        },
+        "openaiCodex.modelSelection": {
+          "type": "object",
+          "default": {
+            "preferredModelId": "",
+            "fallbackModelIds": []
+          },
+          "properties": {
+            "preferredModelId": {
+              "type": "string",
+              "default": "",
+              "description": "Live Codex model ID to prefer when Copilot requests Auto or when this model is selected."
+            },
+            "fallbackModelIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]+$"
+              },
+              "default": [],
+              "description": "Ordered live Codex model IDs to try after the preferred model is rate-limited or unavailable."
+            }
+          },
+          "description": "Optional live model pin and ordered quota/rate-limit fallbacks. Explicit picker selections remain authoritative."
         }
       }
     },
