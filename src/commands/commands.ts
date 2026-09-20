@@ -25,6 +25,7 @@ export function registerCodexCommands(
     vscode.commands.registerCommand("openaiCodex.showUsage", () => showUsage(provider, output)),
     vscode.commands.registerCommand("openaiCodex.diagnostics", () => diagnostics(oauth, provider, output)),
     vscode.commands.registerCommand("openaiCodex.showModelSelection", () => showModelSelection(provider, output)),
+    vscode.commands.registerCommand("openaiCodex.switchModel", () => switchModel(provider, output)),
   ];
 }
 
@@ -42,6 +43,7 @@ async function manage(
     { label: "$(pulse) Show Codex usage", action: "usage" },
     { label: "$(check) Test Codex connection", action: "test" },
     { label: "$(refresh) Refresh Codex models", action: "refresh" },
+    { label: "$(symbol-misc) Switch preferred Codex model", action: "model" },
     { label: "$(output) Show Codex Bridge logs", action: "logs" },
     { label: "$(sign-out) Sign out of Codex Bridge", action: "signout" },
   ] : [
@@ -61,6 +63,7 @@ async function manage(
   else if (picked.action === "usage") await showUsage(provider, output);
   else if (picked.action === "test") await testConnection(provider, output);
   else if (picked.action === "refresh") await refreshModels(provider, output);
+  else if (picked.action === "model") await switchModel(provider, output);
   else if (picked.action === "logs") output.show(true);
   else if (picked.action === "signout") {
     await oauth.signOut(profile);
@@ -329,6 +332,44 @@ async function showModelSelection(provider: OpenAICodexProvider, output: vscode.
   vscode.window.showInformationMessage(`Codex model: ${effective.selected ?? "unavailable"}`, { modal: false });
   const document = await vscode.workspace.openTextDocument({ content: text, language: "text" });
   await vscode.window.showTextDocument(document, vscode.ViewColumn.Beside);
+}
+
+async function switchModel(provider: OpenAICodexProvider, output: vscode.OutputChannel): Promise<void> {
+  try {
+    const models = await vscode.lm.selectChatModels({ vendor: "openai-codex" });
+    if (!models.length) {
+      vscode.window.showWarningMessage("No Codex Bridge models are available. Sign in and run Refresh Codex models first.");
+      return;
+    }
+    const current = provider.getModelSelection();
+    const picked = await vscode.window.showQuickPick(
+      [
+        {
+          label: "$(rocket) Auto",
+          description: "Let Copilot choose; do not pin a preferred model",
+          id: "",
+        },
+        ...models.map((model) => ({
+          label: model.name,
+          description: model.id === current.preferredModelId ? "Current preferred model" : model.id,
+          detail: `${model.maxInputTokens.toLocaleString()} input tokens`,
+          id: model.id.includes("::") ? model.id.slice(model.id.indexOf("::") + 2) : model.id,
+        })),
+      ],
+      { title: "Codex Bridge: Select preferred model", matchOnDescription: true },
+    );
+    if (!picked) return;
+    const configuration = vscode.workspace.getConfiguration("openaiCodex");
+    await configuration.update(
+      "modelSelection",
+      { preferredModelId: picked.id, fallbackModelIds: current.fallbackModelIds },
+      vscode.ConfigurationTarget.Global,
+    );
+    output.appendLine(`[model-selection] preferred model set to ${picked.id || "auto"}`);
+    vscode.window.showInformationMessage(`Codex Bridge preferred model: ${picked.id || "Auto"}`);
+  } catch (error) {
+    showError("Unable to switch Codex model", error, output);
+  }
 }
 
 function formatSelection(selection: { preferredModelId?: string; fallbackModelIds: readonly string[] }): string {

@@ -80,6 +80,10 @@
       {
         "command": "openaiCodex.showModelSelection",
         "title": "Codex Bridge: Show Effective Model"
+      },
+      {
+        "command": "openaiCodex.switchModel",
+        "title": "Codex Bridge: Switch Model"
       }
     ],
     "configuration": {
