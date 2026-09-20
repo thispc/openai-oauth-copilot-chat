@@ -146,6 +146,16 @@ export class OpenAICodexProvider implements vscode.LanguageModelChatProvider<Cod
     return modelSelectionSettings(configuration().get("modelSelection"));
   }
 
+  async getLiveModels(profile = this.activeProfile): Promise<ReadonlyArray<{ id: string; name: string; input: number }>> {
+    const cancellation = new vscode.CancellationTokenSource();
+    try {
+      const models = await this.fetchModels(cancellation.token, profile);
+      return models.map((model) => ({ id: model.id, name: model.name, input: model.input }));
+    } finally {
+      cancellation.dispose();
+    }
+  }
+
   async effectiveModelSelection(profile = this.activeProfile): Promise<{ selected: string | undefined; candidates: string[] }> {
     const settings = this.getModelSelection();
     const cancellation = new vscode.CancellationTokenSource();

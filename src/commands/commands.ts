@@ -336,9 +336,14 @@ async function showModelSelection(provider: OpenAICodexProvider, output: vscode.
 
 async function switchModel(provider: OpenAICodexProvider, output: vscode.OutputChannel): Promise<void> {
   try {
-    const models = await vscode.lm.selectChatModels({ vendor: "openai-codex" });
+    const registered = await vscode.lm.selectChatModels({ vendor: "openai-codex" });
+    const models = registered.length
+      ? registered.map((model) => ({ id: model.id, name: model.name, input: model.maxInputTokens }))
+      : await provider.getLiveModels();
     if (!models.length) {
-      vscode.window.showWarningMessage("No Codex Bridge models are available. Sign in and run Refresh Codex models first.");
+      vscode.window.showWarningMessage(
+        "No Codex models were returned. Confirm the active ChatGPT profile is signed in, run Codex Bridge: Refresh Models, and add Codex Bridge under Chat: Manage Language Models.",
+      );
       return;
     }
     const current = provider.getModelSelection();
@@ -352,7 +357,7 @@ async function switchModel(provider: OpenAICodexProvider, output: vscode.OutputC
         ...models.map((model) => ({
           label: model.name,
           description: model.id === current.preferredModelId ? "Current preferred model" : model.id,
-          detail: `${model.maxInputTokens.toLocaleString()} input tokens`,
+          detail: `${model.input.toLocaleString()} input tokens`,
           id: model.id.includes("::") ? model.id.slice(model.id.indexOf("::") + 2) : model.id,
         })),
       ],
